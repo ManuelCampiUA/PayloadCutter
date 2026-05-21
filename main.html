@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IVASS Payload Cutter</title>
+    <link rel="stylesheet" href="main.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>IVASS Payload Cutter</h1>
+
+      <div class="row">
+        <label for="keyInput">Chiave da estrarre</label>
+        <input
+          id="keyInput"
+          type="text"
+          value="richiesta"
+          placeholder="es. richiesta"
+        />
+      </div>
+
+      <div class="row">
+        <label for="inputArea">JSON in input</label>
+        <textarea
+          id="inputArea"
+          placeholder="Incolla qui il JSON grezzo..."
+        ></textarea>
+      </div>
+
+      <button id="cropBtn">✂ Croppa</button>
+
+      <div class="row" id="outputRow" style="display: none">
+        <div class="output-header">
+          <label for="outputArea">Risultato</label>
+          <button id="copyBtn" class="copy-btn">Copia</button>
+        </div>
+        <textarea id="outputArea" readonly></textarea>
+      </div>
+
+      <div id="errorMsg" class="error" style="display: none"></div>
+    </div>
+
+    <script src="main.js"></script>
+    <script>
+      // Inline fallback – se main.js non è compilato usa questo
+      if (typeof initApp === "undefined") {
+        (function () {
+          var cropBtn = document.getElementById("cropBtn");
+          var copyBtn = document.getElementById("copyBtn");
+          var keyInput = document.getElementById("keyInput");
+          var inputArea = document.getElementById("inputArea");
+          var outputArea = document.getElementById("outputArea");
+          var outputRow = document.getElementById("outputRow");
+          var errorMsg = document.getElementById("errorMsg");
+
+          function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.style.display = "block";
+            outputRow.style.display = "none";
+          }
+
+          function showResult(text) {
+            errorMsg.style.display = "none";
+            outputArea.value = text;
+            outputRow.style.display = "block";
+          }
+
+          cropBtn.addEventListener("click", function () {
+            var raw = inputArea.value.trim();
+            var key = keyInput.value.trim();
+            if (!raw) {
+              showError("Inserisci un JSON in input.");
+              return;
+            }
+            if (!key) {
+              showError("Inserisci una chiave da estrarre.");
+              return;
+            }
+
+            var parsed;
+            try {
+              parsed = JSON.parse(raw);
+            } catch (_) {
+              // Prova a trovare il blocco JSON che inizia con la chiave
+              var idx = raw.indexOf('"' + key + '"');
+              if (idx === -1) {
+                showError('Chiave "' + key + '" non trovata nel testo.');
+                return;
+              }
+              // Risali all\'oggetto contenitore cercando la { che precede la chiave
+              var start = raw.lastIndexOf("{", idx);
+              if (start === -1) {
+                showError("Impossibile trovare l'inizio dell'oggetto JSON.");
+                return;
+              }
+              // Trova la chiusura bilanciando le parentesi
+              var depth = 0,
+                end = -1;
+              for (var i = start; i < raw.length; i++) {
+                if (raw[i] === "{") depth++;
+                else if (raw[i] === "}") {
+                  depth--;
+                  if (depth === 0) {
+                    end = i;
+                    break;
+                  }
+                }
+              }
+              if (end === -1) {
+                showError(
+                  "JSON non bilanciato: mancano parentesi di chiusura.",
+                );
+                return;
+              }
+              try {
+                parsed = JSON.parse(raw.slice(start, end + 1));
+              } catch (e2) {
+                showError("Impossibile fare il parse del JSON: " + e2.message);
+                return;
+              }
+            }
+
+            // Naviga la struttura cercando la chiave (anche annidata)
+            function findKey(obj, k) {
+              if (obj === null || typeof obj !== "object") return undefined;
+              if (Object.prototype.hasOwnProperty.call(obj, k)) return obj[k];
+              for (var prop in obj) {
+                var found = findKey(obj[prop], k);
+                if (found !== undefined) return found;
+              }
+              return undefined;
+            }
+
+            var value = findKey(parsed, key);
+            if (value === undefined) {
+              showError('Chiave "' + key + '" non trovata nel JSON.');
+              return;
+            }
+
+            var result = {};
+            result[key] = value;
+            showResult(JSON.stringify(result, null, 2));
+          });
+
+          copyBtn.addEventListener("click", function () {
+            navigator.clipboard.writeText(outputArea.value).then(function () {
+              copyBtn.textContent = "Copiato!";
+              setTimeout(function () {
+                copyBtn.textContent = "Copia";
+              }, 1500);
+            });
+          });
+        })();
+      }
+    </script>
+  </body>
+</html>
