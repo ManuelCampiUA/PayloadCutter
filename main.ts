@@ -49,7 +49,7 @@ function extractKey(raw: string, key: string): string {
   if (value === undefined)
     throw new Error(`Chiave "${key}" non trovata nel JSON.`);
 
-  return JSON.stringify({ [key]: value }, null, 2);
+  return JSON.stringify(value, null, 2);
 }
 
 // ─── DOM wiring ──────────────────────────────────────────────────────────────

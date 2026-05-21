@@ -138,9 +138,7 @@
               return;
             }
 
-            var result = {};
-            result[key] = value;
-            showResult(JSON.stringify(result, null, 2));
+            showResult(JSON.stringify(value, null, 2));
           });
 
           copyBtn.addEventListener("click", function () {
